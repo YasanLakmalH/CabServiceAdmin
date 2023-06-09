@@ -13,7 +13,6 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 import java.io.IOException;
 import java.sql.*;
@@ -83,7 +82,7 @@ public class DBUtils {
                 psInsert.setString(7, cityText);
                 psInsert.executeUpdate();
 
-                psInsert = connection.prepareStatement("INSERT INTO drivers VALUES(?, ?, ?)");
+                psInsert = connection.prepareStatement("INSERT INTO drivers VALUES(?, ?, ?, ?)");
                 psInsert.setInt(1, newDriverId);
                 psInsert.setString(2, userName);
                 psInsert.setString(3, userPassword);
@@ -95,7 +94,7 @@ public class DBUtils {
                 alert.setContentText("Account created.");
                 alert.show();
 
-                changeScene(event, "customerLogin.fxml");
+                changeScene(event, "adminDashboard.fxml");
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -154,7 +153,7 @@ public class DBUtils {
                 while (resultSet.next()) {
                     vehicleId = resultSet.getInt("vehicleId") + 1;
                 }
-                psInsert = connection.prepareStatement("INSERT INTO vehicles VALUES(?, ?, ?, ?, ?)");
+                psInsert = connection.prepareStatement("INSERT INTO vehicles VALUES(?, ?, ?, ?, ?, ?)");
                 psInsert.setInt(1, vehicleId);
                 psInsert.setString(2, vehicleOwnerName);
                 psInsert.setString(3, vehicleType);
@@ -389,8 +388,8 @@ public class DBUtils {
                 String pickupLocation = resultSet.getString("pickupLocation");
                 String destination = resultSet.getString("destination");
                 String vehicleType = resultSet.getString("vehicleType");
-                String date = resultSet.getString("date");
-                String time = resultSet.getString("time");
+                String bookingDate = resultSet.getString("bookingDate");
+                String bookingTime = resultSet.getString("bookingTime");
 
                 list.add(new pendingBookings(
                         bookingId,
@@ -399,8 +398,8 @@ public class DBUtils {
                         pickupLocation,
                         destination,
                         vehicleType,
-                        date,
-                        time
+                        bookingDate,
+                        bookingTime
                 ));
                 bookingIdBox.getItems().add(bookingId);
             }
@@ -438,15 +437,15 @@ public class DBUtils {
         String bookingDate = null;
         try{
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/cabservice", "root", "");
-            psGetBookingDate = connection.prepareStatement("SELECT date from userbookings WHERE bookingId=?");
+            psGetBookingDate = connection.prepareStatement("SELECT bookingDate from userbookings WHERE bookingId=?");
             psGetBookingDate.setInt(1,bookingId);
             resultSet = psGetBookingDate.executeQuery();
             while(resultSet.next()){
-                bookingDate = resultSet.getString("date");
+                bookingDate = resultSet.getString("bookingDate");
             }
 
         }catch (SQLException e) {
-            System.out.println("checkVehicleAvailability SQL Exception:" + e.getMessage());
+            System.out.println("getBookingDate SQL Exception:" + e.getMessage());
         }finally {
             try{
                 if(resultSet != null) {
@@ -479,20 +478,20 @@ public class DBUtils {
         PreparedStatement psCheckVehicleExist = null;
         ResultSet resultSet = null;
         ArrayList<Integer> driverIdList = new ArrayList<Integer>();
-        String date = getBookingDate(bookingId);
+        String bookingDate = getBookingDate(bookingId);
         try {
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/cabservice", "root", "");
             psCheckVehicleExist = connection.prepareStatement("SELECT DISTINCT driverId " +
                     "FROM bookingmaster " +
                     "INNER JOIN userbookings " +
                     "ON bookingmaster.bookingId = userbookings.bookingId " +
-                    "WHERE userbookings.date <> ? " +
+                    "WHERE userbookings.bookingDate <> ? " +
                     "UNION " +
                     "SELECT driverId " +
                     "FROM drivers " +
                     "WHERE driverAvailability <> 0 " +
                     "ORDER BY driverId ASC; ");
-            psCheckVehicleExist.setString(1, date);
+            psCheckVehicleExist.setString(1, bookingDate);
             resultSet = psCheckVehicleExist.executeQuery();
             while(resultSet.next()) {
                 driverIdList.add(resultSet.getInt("driverId"));
@@ -537,8 +536,10 @@ public class DBUtils {
                     "FROM vehicles " +
                     "INNER JOIN bookingmaster " +
                     "ON bookingmaster.vehicleId = vehicles.vehicleId " +
-                    "WHERE bookingmaster.bookingId = 1;");
+                    "WHERE bookingmaster.bookingId = ?;");
+            psGetVehicleCategory.setInt(1,bookingId);
             resultSet = psGetVehicleCategory.executeQuery();
+
             while(resultSet.next()){
                 vehicleType = resultSet.getString("vehicleType");
             }
@@ -586,7 +587,7 @@ public class DBUtils {
                     "ON bookingmaster.vehicleId = vehicles.vehicleId " +
                     "INNER JOIN userbookings " +
                     "ON bookingmaster.bookingId = userbookings.bookingId " +
-                    "WHERE userbookings.date <>? " +
+                    "WHERE userbookings.bookingDate <>? " +
                     "AND userbookings.vehicleType=? " +
                     "UNION " +
                     "SELECT vehicleModel " +
@@ -599,12 +600,13 @@ public class DBUtils {
             resultSet = psGetVehicleModel.executeQuery();
             while(resultSet.next()){
                 vehicleModelList.add(resultSet.getString("vehicleModel"));
+                System.out.println(resultSet.getString("vehicleModel"));
             }
             vehicleModelBox.getItems().clear();
             vehicleModelBox.getItems().addAll(vehicleModelList);
         }
         catch(SQLException e){
-            System.out.println("checkVehicleAvailability SQL Exception:"+e.getMessage());
+            System.out.println("getVehicleModels SQL Exception:"+e.getMessage());
         }finally {
             try{
                 if(resultSet != null) {
@@ -647,8 +649,8 @@ public class DBUtils {
                     "userbookings.pickupLocation," +
                     "userbookings.destination," +
                     "userbookings.vehicleType," +
-                    "userbookings.date," +
-                    "userbookings.time," +
+                    "userbookings.bookingDate," +
+                    "userbookings.bookingTime," +
                     "driverdetails.firstName," +
                     "vehicles.vehicleModel," +
                     "vehicles.vehicleNo " +
@@ -670,8 +672,8 @@ public class DBUtils {
                 String vehicleNo = resultSet.getString("vehicleNo");
                 int driverId = resultSet.getInt("driverId");
                 String driverName = resultSet.getString("firstName");
-                String date = resultSet.getString("date");
-                String time = resultSet.getString("time");
+                String bookingDate = resultSet.getString("bookingDate");
+                String bookingTime = resultSet.getString("bookingTime");
 
                 list.add(new activeBookings(
                         bookingId,
@@ -683,8 +685,8 @@ public class DBUtils {
                         vehicleNo,
                         driverId,
                         driverName,
-                        date,
-                        time
+                        bookingDate,
+                        bookingTime
                 ));
             }
             tableName.setItems(list);
@@ -732,8 +734,8 @@ public class DBUtils {
                             "userbookings.pickupLocation," +
                             "userbookings.destination," +
                             "userbookings.vehicleType," +
-                            "userbookings.date," +
-                            "userbookings.time," +
+                            "userbookings.bookingDate," +
+                            "userbookings.bookingTime," +
                             "driverdetails.firstName," +
                             "vehicles.vehicleModel," +
                             "vehicles.vehicleNo " +
@@ -755,8 +757,8 @@ public class DBUtils {
                 String vehicleNo = resultSet.getString("vehicleNo");
                 int driverId = resultSet.getInt("driverId");
                 String driverName = resultSet.getString("firstName");
-                String date = resultSet.getString("date");
-                String time = resultSet.getString("time");
+                String bookingDate = resultSet.getString("bookingDate");
+                String bookingTime = resultSet.getString("bookingTime");
 
                 list.add(new completedBookings(
                         bookingId,
@@ -768,8 +770,8 @@ public class DBUtils {
                         vehicleNo,
                         driverId,
                         driverName,
-                        date,
-                        time
+                        bookingDate,
+                        bookingTime
                 ));
             }
             tableName.setItems(list);
@@ -890,7 +892,7 @@ public static void activatePendingBooking(int bookingId,String vehicleModel,int 
                     "ON bookingmaster.vehicleId = vehicles.vehicleId " +
                     "INNER JOIN userbookings " +
                     "ON bookingmaster.bookingId = userbookings.bookingId " +
-                    "WHERE userbookings.date <>? " +
+                    "WHERE userbookings.bookingDate <>? " +
                     "AND vehicles.vehicleModel=>? " +
                     "UNION " +
                     "SELECT vehicleId " +
@@ -899,7 +901,7 @@ public static void activatePendingBooking(int bookingId,String vehicleModel,int 
                     "AND vehicleModel=? " +
                     "ORDER BY vehicleId ASC " +
                     "LIMIT 1;");
-            psGetVehicleId.setInt(1,bookingId);
+            psGetVehicleId.setString(1,bookingDate);
             psGetVehicleId.setString(2,vehicleModel);
             psGetVehicleId.setString(3,vehicleModel);
             resultSet = psGetVehicleId.executeQuery();
