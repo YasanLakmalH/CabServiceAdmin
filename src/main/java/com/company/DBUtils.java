@@ -533,10 +533,8 @@ public class DBUtils {
         try{
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/cabservice", "root", "");
             psGetVehicleCategory = connection.prepareStatement("SELECT vehicleType " +
-                    "FROM vehicles " +
-                    "INNER JOIN bookingmaster " +
-                    "ON bookingmaster.vehicleId = vehicles.vehicleId " +
-                    "WHERE bookingmaster.bookingId = ?;");
+                    "FROM userbookings " +
+                    "WHERE bookingId= ?;");
             psGetVehicleCategory.setInt(1,bookingId);
             resultSet = psGetVehicleCategory.executeQuery();
 
@@ -578,7 +576,9 @@ public class DBUtils {
         ResultSet resultSet = null;
         ArrayList<String> vehicleModelList = new ArrayList<String>();
         String vehicleType = getVehicleType(bookingId);
+        System.out.println(vehicleType);
         String bookingDate = getBookingDate(bookingId);
+        System.out.println(bookingDate);
         try {
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/cabservice", "root", "");
             psGetVehicleModel = connection.prepareStatement("SELECT vehicleModel " +
@@ -598,6 +598,7 @@ public class DBUtils {
             psGetVehicleModel.setString(2,vehicleType);
             psGetVehicleModel.setString(3,vehicleType);
             resultSet = psGetVehicleModel.executeQuery();
+
             while(resultSet.next()){
                 vehicleModelList.add(resultSet.getString("vehicleModel"));
                 System.out.println(resultSet.getString("vehicleModel"));
@@ -805,12 +806,13 @@ public class DBUtils {
 public static void activatePendingBooking(int bookingId,String vehicleModel,int driverId){
         Connection connection = null;
         PreparedStatement psActiveateBooking = null;
-        LocalDateTime createdDateTime = java.time.LocalDateTime.now();
-        String bookingDate = getBookingDate(bookingId);
-        int userId = getUserId(bookingId);
-        int vehicleId = getVehicleId(bookingId,bookingDate,vehicleModel);
-
+        int userId;
+        int vehicleId = 0;
         try{
+            LocalDateTime createdDateTime = java.time.LocalDateTime.now();
+            String bookingDate = getBookingDate(bookingId);
+            userId = getUserId(bookingId);
+            vehicleId = getVehicleId(bookingId,bookingDate,vehicleModel);
             connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/cabservice", "root", "");
             psActiveateBooking = connection.prepareStatement("INSERT INTO bookingmaster VALUES(?,?,?,?,?,?)");
             psActiveateBooking.setInt(1,bookingId);
@@ -819,6 +821,7 @@ public static void activatePendingBooking(int bookingId,String vehicleModel,int 
             psActiveateBooking.setInt(4,vehicleId);
             psActiveateBooking.setString(5, String.valueOf(createdDateTime));
             psActiveateBooking.setString(6,"active");
+            psActiveateBooking.executeUpdate();
 
 
         }catch(SQLException e){
@@ -893,7 +896,7 @@ public static void activatePendingBooking(int bookingId,String vehicleModel,int 
                     "INNER JOIN userbookings " +
                     "ON bookingmaster.bookingId = userbookings.bookingId " +
                     "WHERE userbookings.bookingDate <>? " +
-                    "AND vehicles.vehicleModel=>? " +
+                    "AND vehicles.vehicleModel=? " +
                     "UNION " +
                     "SELECT vehicleId " +
                     "FROM vehicles " +
@@ -937,6 +940,7 @@ public static void activatePendingBooking(int bookingId,String vehicleModel,int 
                     psBookingStatusUpdate = connection.prepareStatement("UPDATE userbookings SET status=? WHERE bookingId=?");
                     psBookingStatusUpdate.setString(1,status);
                     psBookingStatusUpdate.setInt(2,bookingId);
+                    psBookingStatusUpdate.executeUpdate();
                 }catch(SQLException e){
                     e.printStackTrace();
                 }finally {
